@@ -564,66 +564,89 @@ def main():
         return
 
     # ----------------------------------------------------
-    # ⏰ 時間割設定画面 (💡 リッチデザイン＋スマホ横スクロール対応)
+    # ⏰ 時間割設定画面 (💡 極限まで横幅を狭めたスマホ最適化版)
     # ----------------------------------------------------
     if view_mode == "⏰ 時間割設定":
         st.title("⏰ 時間割設定")
         st.info("※ここでチェックした授業・予定は、日程調整画面で「不可(×)」として一括反映できます。")
         
-        # 💡 スマホで「月・火・水…」の列が縦に崩れず、そのまま横にスクロールできる魔法のCSS
+        # 💡 スマホでの横幅を限界まで詰める魔法のCSS
         st.markdown("""
         <style>
             @media (max-width: 650px) {
+                /* 全体のコンテナ幅を縮小 */
                 .main .block-container {
-                    min-width: 650px !important;
-                    overflow-x: auto !important;
-                    padding-bottom: 20px;
+                    min-width: 350px !important;
+                    padding-left: 5px !important;
+                    padding-right: 5px !important;
+                    overflow-x: hidden !important;
                 }
+                /* 列が絶対に折り返さないようにする */
                 [data-testid="stHorizontalBlock"] {
                     flex-wrap: nowrap !important;
+                    gap: 2px !important; /* 列と列の隙間を最小に */
                 }
+                /* 各列の内側の余白を消す */
+                [data-testid="column"] {
+                    padding: 0 !important;
+                    min-width: 0 !important;
+                }
+                /* チェックボックスの余白を極限まで削る */
+                [data-testid="stCheckbox"] {
+                    display: flex; justify-content: center; align-items: center;
+                    padding: 0 !important; margin: 0 !important;
+                }
+                /* 文字サイズを小さく */
+                .tt-day-header { font-size: 13px !important; padding: 4px !important; }
+                .tt-time-cell { font-size: 11px !important; padding: 4px !important; }
+                .tt-time-sub { font-size: 9px !important; }
+                .status-on, .af-status-on, .status-off { font-size: 10px !important; padding: 2px 0 !important; margin-top:-5px; }
             }
         </style>
         """, unsafe_allow_html=True)
         
-        # 以前のお気に入りデザインを完全復活
         fixed_sched = user.get("fixed_schedule", {})
         ui_state = {str(i): {} for i in range(5)}
         
         days_jp = ["月", "火", "水", "木", "金"]
-        cols = st.columns([1.5, 1, 1, 1, 1, 1])
+        
+        # 💡 列の比率を変更（左端の「時間」列を少し狭く、曜日列を均等に）
+        cols = st.columns([1.2, 1, 1, 1, 1, 1])
+        
         cols[0].markdown("<div style='padding:8px;'></div>", unsafe_allow_html=True)
         for i, d in enumerate(days_jp): cols[i+1].markdown(f"<div class='tt-day-header'>{d}</div>", unsafe_allow_html=True)
-        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
 
         periods = [
-            ("1限", "09:00〜10:30", 36, 42, "p1"), ("2限", "10:45〜12:15", 43, 49, "p2"),
-            ("3限", "13:15〜14:45", 53, 59, "p3"), ("4限", "15:00〜16:30", 60, 66, "p4"), ("5限", "16:45〜18:15", 67, 73, "p5")
+            ("1限", "09:00〜", 36, 42, "p1"), ("2限", "10:45〜", 43, 49, "p2"),
+            ("3限", "13:15〜", 53, 59, "p3"), ("4限", "15:00〜", 60, 66, "p4"), ("5限", "16:45〜", 67, 73, "p5")
         ]
+        
         for p_name, p_time, s_idx, e_idx, p_key in periods:
-            cols = st.columns([1.5, 1, 1, 1, 1, 1])
+            # 💡 ループ内でも列の比率を狭めたものに合わせる
+            cols = st.columns([1.2, 1, 1, 1, 1, 1])
             cols[0].markdown(f"<div class='tt-time-cell'>{p_name}<br><span class='tt-time-sub'>{p_time}</span></div>", unsafe_allow_html=True)
             for i in range(5):
                 day_bin = fixed_sched.get(str(i), "0"*96)
                 val = (day_bin[s_idx:e_idx] == "1" * (e_idx - s_idx))
                 checked = cols[i+1].checkbox(" ", value=val, key=f"{p_key}_{i}", label_visibility="collapsed")
                 ui_state[str(i)][p_key] = checked
-                if checked: cols[i+1].markdown("<div class='status-on'>✏️ 授業あり</div>", unsafe_allow_html=True)
-                else: cols[i+1].markdown("<div class='status-off'>ー なし</div>", unsafe_allow_html=True)
-            st.markdown("<hr style='margin: 8px 0; border: none; border-bottom: 1px dashed #ddd;'>", unsafe_allow_html=True)
+                if checked: cols[i+1].markdown("<div class='status-on'>✔︎ あり</div>", unsafe_allow_html=True)
+                else: cols[i+1].markdown("<div class='status-off'>-</div>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin: 4px 0; border: none; border-bottom: 1px dashed #ddd;'>", unsafe_allow_html=True)
             
-        cols = st.columns([1.5, 1, 1, 1, 1, 1])
+        cols = st.columns([1.2, 1, 1, 1, 1, 1])
         cols[0].markdown(f"<div class='tt-time-cell' style='border-left-color:#FF9800;'>放課後<br><span class='tt-time-sub'>18:30〜</span></div>", unsafe_allow_html=True)
         for i in range(5):
             day_bin = fixed_sched.get(str(i), "0"*96); af_bin = day_bin[74:]; val = "1" in af_bin
             checked = cols[i+1].checkbox(" ", value=val, key=f"af_{i}", label_visibility="collapsed")
             ui_state[str(i)]["af"] = checked
-            if checked: cols[i+1].markdown("<div class='af-status-on'>🌙 予定あり</div>", unsafe_allow_html=True)
-            else: cols[i+1].markdown("<div class='status-off'>ー なし</div>", unsafe_allow_html=True)
+            if checked: cols[i+1].markdown("<div class='af-status-on'>🌙 予定</div>", unsafe_allow_html=True)
+            else: cols[i+1].markdown("<div class='status-off'>-</div>", unsafe_allow_html=True)
         st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
         
-        cols = st.columns([1.5, 1, 1, 1, 1, 1])
-        cols[0].markdown(f"<div style='text-align:center; font-size:12px; color:#666; padding-top:10px;'>┗ 終了時間</div>", unsafe_allow_html=True)
+        cols = st.columns([1.2, 1, 1, 1, 1, 1])
+        cols[0].markdown(f"<div style='text-align:center; font-size:10px; color:#666; padding-top:10px;'>終了時刻</div>", unsafe_allow_html=True)
         for i in range(5):
             if ui_state[str(i)]["af"]:
                 day_bin = fixed_sched.get(str(i), "0"*96); af_bin = day_bin[74:]; af_end_val = "21:00"
@@ -639,6 +662,7 @@ def main():
                 ui_state[str(i)]["af_end"] = "21:00"
 
         st.markdown("<br><br>", unsafe_allow_html=True)
+        # ・・・（保存ボタン以降の処理はそのまま変更なし）・・・
         if st.button("💾 時間割を保存する", use_container_width=True, type="primary"):
             new_fixed_sched = {}
             for i in range(5):
