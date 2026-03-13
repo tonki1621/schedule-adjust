@@ -571,47 +571,56 @@ def main():
         return
 
     # ----------------------------------------------------
-    # ⏰ 時間割設定画面 (💡 極限まで横幅を狭めたスマホ最適化版)
+    # ⏰ 時間割設定画面 (💡 リッチデザイン＋スマホ横スクロール対応)
     # ----------------------------------------------------
     if view_mode == "⏰ 時間割設定":
         st.title("⏰ 時間割設定")
         st.info("※ここでチェックした授業・予定は、日程調整画面で「不可(×)」として一括反映できます。")
         
-        # 💡 スマホでの横幅を限界まで詰める魔法のCSS
+        # 💡 スマホでカラムを縦に積まず、横並びのままギュッと詰める魔法のCSS
         st.markdown("""
         <style>
             @media (max-width: 650px) {
-                /* 全体のコンテナ幅を縮小 */
-                .main .block-container {
-                    min-width: 350px !important;
-                    padding-left: 5px !important;
-                    padding-right: 5px !important;
-                    overflow-x: hidden !important;
-                }
-                /* 列が絶対に折り返さないようにする */
+                /* カラム強制横並び */
                 [data-testid="stHorizontalBlock"] {
+                    display: flex !important;
+                    flex-direction: row !important;
                     flex-wrap: nowrap !important;
-                    gap: 2px !important; /* 列と列の隙間を最小に */
+                    align-items: flex-start !important;
+                    gap: 2px !important;
                 }
-                /* 各列の内側の余白を消す */
+                /* 各列を均等に（余分な空白を削る） */
                 [data-testid="column"] {
+                    min-width: 0 !important; 
+                    flex: 1 1 auto !important;
+                }
+                /* 1列目（時間ラベル）の幅を少し持たせる */
+                [data-testid="column"]:first-child {
+                    flex: 0 0 55px !important;
+                }
+                /* チェックボックスの余白削除＆中央寄せ */
+                [data-testid="stCheckbox"] {
+                    margin: 0 !important;
                     padding: 0 !important;
+                    width: auto !important;
+                    justify-content: center !important;
+                }
+                /* チェックボックス横の「あり」の文字を消す */
+                [data-testid="stCheckbox"] label p {
+                    display: none !important;
+                }
+                /* 終了時間セレクトボックスの幅も圧縮 */
+                [data-testid="stSelectbox"] {
                     min-width: 0 !important;
                 }
-                /* チェックボックスの余白を極限まで削る */
-                [data-testid="stCheckbox"] {
-                    display: flex; justify-content: center; align-items: center;
-                    padding: 0 !important; margin: 0 !important;
-                }
-                /* 文字サイズを小さく */
+                /* ヘッダーなどの文字サイズをスマホ向けに最適化 */
                 .tt-day-header { font-size: 13px !important; padding: 4px !important; }
-                .tt-time-cell { font-size: 11px !important; padding: 4px !important; }
-                .tt-time-sub { font-size: 9px !important; }
-                .status-on, .af-status-on, .status-off { font-size: 10px !important; padding: 2px 0 !important; margin-top:-5px; }
+                .tt-time-cell { font-size: 11px !important; padding: 5px !important; }
             }
         </style>
         """, unsafe_allow_html=True)
         
+        # 以前のお気に入りデザインを完全復活
         fixed_sched = user.get("fixed_schedule", {})
         ui_state = {str(i): {} for i in range(5)}
         
