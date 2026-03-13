@@ -580,51 +580,55 @@ def main():
         # 💡 スマホで間延びする「四角」をキュッと中央に圧縮する魔法のCSS
         st.markdown("""
         <style>
-            @media (max-width: 650px) {
-                /* 1. 時間割エリア全体を中央に寄せ、横幅を絞る */
-                [data-testid="stVerticalBlock"] > div:has(.tt-day-header),
-                [data-testid="stVerticalBlock"] > div:has(.tt-time-cell) {
-                    max-width: 380px !important;
-                    margin: 0 auto !important;
-                    padding: 0 !important;
-                }
-
-                /* 2. カラムの余白を極限まで削る */
-                [data-testid="stHorizontalBlock"] {
-                    display: flex !important;
-                    flex-direction: row !important;
-                    flex-wrap: nowrap !important;
-                    gap: 4px !important;
-                }
-                
-                [data-testid="column"] {
-                    min-width: 0 !important;
-                    flex: 1 1 0px !important;
-                    padding: 0 !important;
-                }
-
-                /* 3. 時間ラベル列（一番左）の幅を最適化 */
-                [data-testid="column"]:first-child {
-                    flex: 0 0 58px !important;
-                }
-
-                /* 4. 各パーツをさらにコンパクトに */
-                .tt-day-header { font-size: 12px !important; padding: 4px 0 !important; }
-                .tt-time-cell { font-size: 11px !important; padding: 4px 2px !important; border-left: 2px solid #4CAF50 !important; }
-                .tt-time-sub { font-size: 8px !important; display: block; line-height: 1; }
-                .status-on, .status-off, .af-status-on { font-size: 10px !important; padding: 2px 0 !important; }
-                
-                /* チェックボックスの巨大な余白を抹消 */
-                [data-testid="stCheckbox"] {
-                    margin: 0 !important;
-                    padding: 0 !important;
-                    display: flex;
-                    justify-content: center;
-                }
-                [data-testid="stCheckbox"] label p { display: none !important; }
-                /* 終了時間セレクトボックスの幅も圧縮 */
-                [data-testid="stSelectbox"] { min-width: 0 !important; }
+            /* 💡 スマホ版：間延び解消と中央寄せの魔法（縦画面の無駄な余白・撲滅版） */
+        @media (max-width: 650px) {
+            /* 1. 時間割エリア全体の中身の幅に合わせ、中央に寄せる */
+            [data-testid="stForm"] > div > div > [data-testid="stVerticalBlock"] {
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important; /* 全体を中央寄せ */
+                max-width: 100% !important;
             }
+
+            /* 2. 行が画面いっぱいに広がるのを防ぎ、中身のサイズにぴたりと合わせる */
+            [data-testid="stHorizontalBlock"] {
+                display: flex !important;
+                flex-direction: row !important;
+                flex-wrap: nowrap !important;
+                width: max-content !important; /* ★ここが重要！画面幅まで広がらない */
+                margin: 0 auto !important;
+                gap: 4px !important; /* 列と列の隙間 */
+            }
+            
+            /* 3. 各列（月〜金）の幅を強制的に固定し、絶対に広げない */
+            [data-testid="column"] {
+                min-width: 0 !important;
+                flex: 0 0 46px !important; /* ★均等割ではなく、46pxの固定幅にする */
+                padding: 0 !important;
+            }
+
+            /* 4. 時間ラベル列（一番左）の幅を固定 */
+            [data-testid="column"]:first-child {
+                flex: 0 0 54px !important; /* 時間表記用のみ少し広く */
+            }
+
+            /* 5. 各パーツの無駄な余白を削り落とす */
+            .tt-day-header { font-size: 13px !important; padding: 4px 0 !important; border-radius: 4px !important;}
+            .tt-time-cell { font-size: 11px !important; padding: 4px 2px !important; border-left: 2px solid #4CAF50 !important; border-radius: 4px !important;}
+            .tt-time-sub { font-size: 9px !important; display: block; line-height: 1.2; }
+            .status-on, .status-off, .af-status-on { font-size: 11px !important; padding: 4px 0 !important; border-radius: 4px !important;}
+            
+            /* チェックボックスの巨大な余白を抹消 */
+            [data-testid="stCheckbox"] {
+                margin: 0 !important;
+                padding: 0 !important;
+                display: flex;
+                justify-content: center;
+                width: 100% !important;
+            }
+            [data-testid="stCheckbox"] label p { display: none !important; }
+            [data-testid="stSelectbox"] { min-width: 0 !important; }
+        }
         </style>
         """, unsafe_allow_html=True)
         
