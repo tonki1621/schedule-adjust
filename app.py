@@ -841,7 +841,7 @@ def main():
             elif ev_type == "time" and time_master.index(t_start) >= time_master.index(t_end): st.error("終了時刻は開始時刻より後に設定してください。")
             elif ev_type == "options" and not any(o.strip() for o in opts_list): st.error("最低1つの候補を入力してください。")
             elif not is_all_members and target_scope_json == '{"groups": [], "users": []}': st.error("対象メンバーを指定するか、「全員に公開する」にチェックを入れてください。")
-        else:
+            else:
                 deadline_str = f"{deadline_date.strftime('%Y-%m-%d')} {deadline_time.strftime('%H:%M')}"
                 payload = {
                     "title": ev_title, 
@@ -1048,11 +1048,19 @@ def main():
     if unanswered_events:
         st.warning(f"⚠️ **未回答のイベントが {len(unanswered_events)} 件あります！** サイドバーのリストから選択して早めの回答をお願いします。")
 
+    # 💡 修正後：1220行目付近の index 設定ロジックをより堅牢に
     default_idx = 0
-    if st.session_state.get("target_ev_id"):
+    target_id = st.session_state.get("target_ev_id")
+    
+    # セッションにあるIDが、現在のリストに存在するか確認
+    if target_id:
         for i, ev in enumerate(events):
-            if ev['event_id'] == st.session_state.target_ev_id:
-                default_idx = i; break
+            if ev['event_id'] == target_id:
+                default_idx = i
+                break
+        else:
+            # もしリストになければ（権限がない、削除された等）、セッションのIDをクリア
+            st.session_state.target_ev_id = events[0]['event_id']
 
     def format_ev_name(x):
         # 💡 セレクトボックス内の期限も日本式に
@@ -1070,6 +1078,7 @@ def main():
 
     event = st.selectbox("🎯 対象イベント選択", events, index=default_idx, format_func=format_ev_name)
     
+    # 選択されたイベントがセッションと異なれば更新
     if st.session_state.get("target_ev_id") != event['event_id']:
         st.session_state.target_ev_id = event['event_id']
         st.rerun()
