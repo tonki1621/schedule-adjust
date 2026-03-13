@@ -964,8 +964,8 @@ def main():
 
     event = st.selectbox("🎯 対象イベント選択", events, index=default_idx, format_func=format_ev_name)
     
-    # 選択したイベントが切り替わったら再取得を促す
-    if st.session_state.target_ev_id != event['event_id']:
+    # 選択したイベントが切り替わったら再取得を促す（エラー防止のため .get() を使用）
+    if st.session_state.get("target_ev_id") != event['event_id']:
         st.session_state.target_ev_id = event['event_id']
         st.rerun()
 
