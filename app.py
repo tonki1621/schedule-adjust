@@ -571,73 +571,49 @@ def main():
         return
 
     # ----------------------------------------------------
-    # ⏰ 時間割設定画面 (💡 リッチデザイン＋スマホ横スクロール対応)
+    # ⏰ 時間割設定画面
     # ----------------------------------------------------
     if view_mode == "⏰ 時間割設定":
         st.title("⏰ 時間割設定")
         st.info("※ここでチェックした授業・予定は、日程調整画面で「不可(×)」として一括反映できます。")
         
-        # 💡 スマホで間延びする「四角」をキュッと中央に圧縮する魔法のCSS
+        # 💡 スマホの「縦画面」の時だけ表示される横向き推奨ガイド
         st.markdown("""
         <style>
-        /* 💡 スマホ版：すべての行の幅を完全一致させる鉄壁のCSS */
-        @media (max-width: 650px) {
-            /* 1. 時間割の各行をピンポイントで狙い、全体の幅を「340px」に強制統一 */
-            [data-testid="stHorizontalBlock"]:has(.tt-day-header),
-            [data-testid="stHorizontalBlock"]:has(.tt-time-cell),
-            [data-testid="stHorizontalBlock"]:has(.tt-end-time) {
-                display: flex !important;
-                flex-direction: row !important;
-                flex-wrap: nowrap !important;
-                width: 100% !important;
-                max-width: 340px !important; /* ★すべての行がピッタリ同じ幅になります */
-                margin: 0 auto !important;   /* 中央寄せ */
-                gap: 3px !important;         /* 列間の隙間 */
+            .mobile-rotate-guide {
+                display: none; /* デフォルトは非表示 */
             }
-            
-            /* 2. 各列（曜日）を中身のサイズを無視して「絶対均等」に分割 */
-            [data-testid="stHorizontalBlock"]:has(.tt-day-header) > [data-testid="column"],
-            [data-testid="stHorizontalBlock"]:has(.tt-time-cell) > [data-testid="column"],
-            [data-testid="stHorizontalBlock"]:has(.tt-end-time) > [data-testid="column"] {
-                min-width: 0 !important;
-                flex: 1 1 0% !important; /* ★均等割りの魔法 */
-                width: 0 !important;
-                padding: 0 !important;
+            /* 画面幅650px以下 ＆ 縦向き（portrait）の時だけ表示 */
+            @media (max-width: 650px) and (orientation: portrait) {
+                .mobile-rotate-guide {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+                    color: #2e7d32;
+                    padding: 12px 15px;
+                    border-radius: 8px;
+                    margin-bottom: 20px;
+                    font-size: 13px;
+                    font-weight: bold;
+                    border-left: 5px solid #4CAF50;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+                    animation: fadeIn 0.5s ease-in-out;
+                }
+                .mobile-rotate-guide::before {
+                    content: "📱🔄";
+                    font-size: 20px;
+                    margin-right: 10px;
+                }
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(-10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
             }
-
-            /* 3. 1列目（時間ラベル）だけ幅を52pxに固定 */
-            [data-testid="stHorizontalBlock"]:has(.tt-day-header) > [data-testid="column"]:first-child,
-            [data-testid="stHorizontalBlock"]:has(.tt-time-cell) > [data-testid="column"]:first-child,
-            [data-testid="stHorizontalBlock"]:has(.tt-end-time) > [data-testid="column"]:first-child {
-                flex: 0 0 52px !important;
-                width: 52px !important;
-            }
-            
-            /* 4. セレクトボックス（終了時間）が横に伸びようとするのを防ぐ */
-            [data-testid="stSelectbox"], 
-            [data-testid="stSelectbox"] > div {
-                min-width: 0 !important;
-                width: 100% !important;
-            }
-            div[data-baseweb="select"] {
-                font-size: 10px !important;
-            }
-            
-            /* 5. チェックボックスと文字の余白削り */
-            [data-testid="stCheckbox"] {
-                margin: 0 auto !important;
-                padding: 0 !important;
-                display: flex;
-                justify-content: center;
-                width: 100% !important;
-            }
-            [data-testid="stCheckbox"] label p { display: none !important; }
-            .tt-day-header { font-size: 13px !important; padding: 4px 0 !important; }
-            .tt-time-cell { font-size: 11px !important; padding: 4px 2px !important; }
-            .tt-time-sub { font-size: 9px !important; }
-            .status-on, .status-off, .af-status-on { font-size: 10px !important; padding: 3px 0 !important; }
-        }
         </style>
+        <div class="mobile-rotate-guide">
+            スマホを横向きにすると、時間割が綺麗に表示されます！
+        </div>
         """, unsafe_allow_html=True)
         
         # 以前のお気に入りデザインを完全復活
