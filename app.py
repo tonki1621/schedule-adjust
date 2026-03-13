@@ -570,50 +570,71 @@ def main():
             else: st.error("更新に失敗しました。")
         return
 
-    # ----------------------------------------------------
+   # ----------------------------------------------------
     # ⏰ 時間割設定画面
     # ----------------------------------------------------
     if view_mode == "⏰ 時間割設定":
         st.title("⏰ 時間割設定")
         st.info("※ここでチェックした授業・予定は、日程調整画面で「不可(×)」として一括反映できます。")
         
-        # 💡 スマホの「縦画面」の時だけ表示される横向き推奨ガイド
+        # 💡 スマホ版：縦積み防止（横スクロール化） ＆ 横向き推奨ガイド
         st.markdown("""
         <style>
-            .mobile-rotate-guide {
-                display: none; /* デフォルトは非表示 */
-            }
-            /* 画面幅650px以下 ＆ 縦向き（portrait）の時だけ表示 */
+            /* --- 横向き推奨ガイドのCSS --- */
+            .mobile-rotate-guide { display: none; }
             @media (max-width: 650px) and (orientation: portrait) {
                 .mobile-rotate-guide {
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
-                    color: #2e7d32;
-                    padding: 12px 15px;
-                    border-radius: 8px;
-                    margin-bottom: 20px;
-                    font-size: 13px;
-                    font-weight: bold;
-                    border-left: 5px solid #4CAF50;
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-                    animation: fadeIn 0.5s ease-in-out;
+                    display: flex; align-items: center; justify-content: center;
+                    background: linear-gradient(135deg, #e8f5e9, #c8e6c9); color: #2e7d32;
+                    padding: 12px 15px; border-radius: 8px; margin-bottom: 20px;
+                    font-size: 13px; font-weight: bold; border-left: 5px solid #4CAF50;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.05); animation: fadeIn 0.5s ease-in-out;
                 }
-                .mobile-rotate-guide::before {
-                    content: "📱🔄";
-                    font-size: 20px;
-                    margin-right: 10px;
+                .mobile-rotate-guide::before { content: "📱🔄"; font-size: 20px; margin-right: 10px; }
+                @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+            }
+
+            /* --- 表の体裁を絶対に崩さない（縦積み防止）CSS --- */
+            @media (max-width: 650px) {
+                /* 1. はみ出た分は横スクロールさせる（画面に無理やり押し込まない） */
+                [data-testid="stForm"] > div > div > [data-testid="stVerticalBlock"] {
+                    overflow-x: auto !important;
+                    padding-bottom: 15px !important; /* スワイプしやすいように下部に余白 */
                 }
-                @keyframes fadeIn {
-                    from { opacity: 0; transform: translateY(-10px); }
-                    to { opacity: 1; transform: translateY(0); }
+                
+                /* 2. Streamlit特有の「スマホだと縦に並ぶ」仕様を強制解除し、横並びを死守 */
+                [data-testid="stHorizontalBlock"] {
+                    display: flex !important;
+                    flex-direction: row !important;
+                    flex-wrap: nowrap !important;
+                    min-width: 480px !important; /* ★お気に入りのデザインが潰れない最低横幅 */
+                    gap: 2px !important;
                 }
+                
+                /* 3. 各列の比率設定 */
+                [data-testid="column"] {
+                    min-width: 0 !important;
+                    flex: 1 1 0px !important;
+                    padding: 0 !important;
+                }
+                [data-testid="column"]:first-child {
+                    flex: 0 0 55px !important; /* 時間表記の列だけ固定幅 */
+                }
+
+                /* 4. フォントと余白の微調整 */
+                .tt-day-header { font-size: 13px !important; padding: 4px 0 !important; }
+                .tt-time-cell { font-size: 11px !important; padding: 4px 2px !important; border-left: 2px solid #4CAF50 !important; }
+                .tt-time-sub { font-size: 9px !important; display: block; line-height: 1.1; }
+                .status-on, .status-off, .af-status-on { font-size: 10px !important; padding: 2px 0 !important; }
+                
+                /* チェックボックスの無駄な余白を消去 */
+                [data-testid="stCheckbox"] { margin: 0 auto !important; padding: 0 !important; justify-content: center; }
+                [data-testid="stCheckbox"] label p { display: none !important; }
+                [data-testid="stSelectbox"] { min-width: 0 !important; }
             }
         </style>
-        <div class="mobile-rotate-guide">
-            スマホを横向きにすると、時間割が綺麗に表示されます！
-        </div>
+        
+        <div class="mobile-rotate-guide">スマホを横向きにすると、時間割が綺麗に表示されます！</div>
         """, unsafe_allow_html=True)
         
         # 以前のお気に入りデザインを完全復活
