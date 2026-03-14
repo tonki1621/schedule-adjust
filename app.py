@@ -1259,7 +1259,46 @@ def main():
             else: cell_h = "36px"
 
         tab_in, tab_graph = st.tabs(["📅 入力", "📊 集計"])
+        tab_in, tab_graph = st.tabs(["📅 入力", "📊 集計"])
         with tab_in:
+            # 💡 外部連携ボタンの追加（ここから）
+            if event_type == 'time':
+                st.markdown("##### 📅 カレンダー連携")
+                c_import1, c_import2 = st.columns([3, 1])
+                with c_import1:
+                    st.write("Googleカレンダーの予定を読み込んで、自動で「授業等(グレー)」として反映します。")
+                with c_import2:
+                    if st.button("🔄 カレンダーから取得", use_container_width=True):
+                        with st.spinner("Googleカレンダーを確認中..."):
+                            # GASの import_google_calendar アクションを呼び出し
+                            res = call_gas("import_google_calendar", {
+                                "start_date": event['start_date'],
+                                "end_date": event['end_date']
+                            }, method="POST")
+                            
+                            if res.get("status") == "success":
+                                # 💡 data の中にある busy_slots を取得
+                                busy_data = res.get("data", {}).get("busy_slots", {})
+                                if not busy_data:
+                                    st.info("指定期間に予定は見つかりませんでした。")
+                                else:
+                                    # 取得した予定を df_input（入力用データフレーム）に反映
+                                    for d_str, slots in busy_data.items():
+                                        if d_str in st.session_state.df_input.columns:
+                                            for s_idx in slots:
+                                                time_label = time_master[s_idx]
+                                                if time_label in st.session_state.df_input.index:
+                                                    # 3 = 授業等(グレー) としてセット
+                                                    st.session_state.df_input.loc[time_label, d_str] = 3
+                                    st.success("カレンダーの予定を反映しました！内容を確認して「提出」を押してください。")
+                                    time.sleep(1)
+                                    st.rerun()
+                            else:
+                                st.error("取得に失敗しました。GAS側の権限承認が済んでいるか確認してください。")
+            # 💡 外部連携ボタンの追加（ここまで）
+
+            st.markdown("---") # 区切り線
+
             m = st.session_state.df_input[date_strs].values.tolist()
             time_opts_html = "".join([f'<option value="{i}">{t}</option>' for i, t in enumerate(time_labels)])
             src_opts_html = "".join([f'<option value="{i}">{l}</option>' for i, l in enumerate(clean_date_labels)])
