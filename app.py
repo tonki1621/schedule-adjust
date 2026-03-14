@@ -546,15 +546,10 @@ def main():
                         if not req_name:
                             st.warning("お名前を入力してください。")
                         else:
-                            # デバッグ用にレスポンスを受け取る
-                            res = call_gas("request_pin_reset", {"payload": {"name": req_name}}, method="POST")
-                            
-                            if res.get("status") == "success":
-                                st.success(f"✅ {req_name}さん、管理者に通知を送りました。")
-                            else:
-                                # 💡 エラー内容を詳しく表示するデバッグ表示
-                                st.error("🛑 送信に失敗しました。")
-                                st.json(res)  # ← これを入れることで、GASから返ってきた本当の理由が見えます
+                # ユーザー向けには丁寧なメッセージだけを出す
+                st.error("🛑 送信に失敗しました。管理者へ直接連絡してください。")
+                # 管理者だけが確認したい場合は、以下をコメントアウトしておく
+                # st.json(res)
         return
 
     # ==========================================
