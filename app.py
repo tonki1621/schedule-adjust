@@ -1065,29 +1065,34 @@ def main():
     if unanswered_events:
         st.sidebar.markdown("---")
         st.sidebar.markdown(f"<div style='color:#FF4B4B; font-weight:bold; padding-bottom: 5px;'>📢 未回答の予定 ({len(unanswered_events)}件)</div>", unsafe_allow_html=True)
+        # 💡 サイドバーの未回答イベント表示
         for u_ev in unanswered_events:
             is_urgent = False
+            
+            # --- 1085行目付近の判定 ---
             if u_ev.get('deadline'):
                 try:
                     # 💡 柔軟な解析に切り替え
                     dl_dt = pd.to_datetime(u_ev['deadline'])
-                    # タイムゾーンの競合を防ぐためtz-naiveに統一
+                    # タイムゾーンがある場合は統一
                     if dl_dt.tzinfo is not None:
                         dl_dt = dl_dt.tz_convert(None)
                     
+                    # 緊急判定（3日以内）
                     if 0 <= (dl_dt - now_dt).total_seconds() <= 3 * 24 * 3600:
                         is_urgent = True
-                except: pass
+                except:
+                    # 解析失敗時は何もしない
+                    pass
             
+            # --- 1087行目付近：ここは if の外側（forループの直下）に出す ---
             icon = "🔥" if is_urgent else "🔴"
-            # 💡 強化した関数で日本語表示にする
-            dl_text = format_deadline_jp(u_ev.get('deadline'))
-            if st.sidebar.button(f"{icon} {u_ev['title']} (〜{dl_text})", key=f"btn_jump_{u_ev['event_id']}", use_container_width=True):
             
-            icon = "🔥" if is_urgent else "🔴"
-            # 💡 サイドバーでも統一された日本式の日時を表示
+            # 💡 期限を日本式に変換
             dl_text = format_deadline_jp(u_ev.get('deadline'))
-            if st.sidebar.button(f"{icon} {u_ev['title']} (〜{dl_text})", key=f"btn_jump_{u_ev['event_id']}", use_container_width=True):
+            
+            # ボタンを表示
+            if st.sidebar.button(f"{icon} {u_ev['title']} (〜{dl_text})", key=f"side_btn_{u_ev['event_id']}", use_container_width=True):
                 st.session_state.target_ev_id = u_ev['event_id']
                 st.rerun()
 
