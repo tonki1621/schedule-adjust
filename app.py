@@ -1259,7 +1259,6 @@ def main():
             else: cell_h = "36px"
 
         tab_in, tab_graph = st.tabs(["📅 入力", "📊 集計"])
-        tab_in, tab_graph = st.tabs(["📅 入力", "📊 集計"])
         with tab_in:
             # 💡 外部連携ボタンの追加（ここから）
             if event_type == 'time':
