@@ -849,14 +849,15 @@ def main():
                     t_g4 = st.multiselect("👑 役職", MASTER_G4_OPTS, key="tgt_g4")
                 with col_t2:
                     t_g2 = st.multiselect("🔧 系", all_g2, key="tgt_g2")
-                    t_users = st.multiselect("👤 特定の個人", all_u, format_func=lambda x: f"{x['name']} (ID: {x['user_id']})", key="tgt_users")
+                    # 名前を五十音順にソート
+                    t_users = st.multiselect("👤 特定の個人", sorted(all_u, key=lambda x: x['name']), format_func=lambda x: f"{x['name']} (ID: {x['user_id']})", key="tgt_users")
                 
                 expanded_g4 = []
                 for g in t_g4:
                     if g == "シスマネ":
-                        expanded_g4.extend(["ミッションシスマネ", "電源シスマネ", "構造シスマネ", "通信シスマネ", "姿勢シスマネ", "熱シスマネ", "C＆DHシスマネ"])
+                        expanded_g4.extend(["ミッションシスマネ", "電源シスマネ", "構造シスマネ", "通信シスマネ", "姿勢シスマネ", "熱シスマネ", "C＆DHシスマネ", "シスマネ"])
                     elif g == "系長":
-                        expanded_g4.extend(["燃焼系長", "推進系長", "構造系長", "電装系長"])
+                        expanded_g4.extend(["燃焼系長", "推進系長", "構造系長", "電装系長", "系長"])
                     else:
                         expanded_g4.append(g)
 
@@ -869,7 +870,6 @@ def main():
         with st.container(border=True):
             st.markdown("##### 🔒 プライバシー・通知設定")
             is_private = st.checkbox("🤫 プライベート調整にする（回答者の名前を他の参加者に隠す）", key="create_private")
-            # 💡 追加：Slackに通知を送らない設定
             skip_slack = st.checkbox("🔕 Slackに通知を送らない（ひっそり作成してURLで直接招待する）", value=False, key="skip_slack")
 
         st.markdown("##### 📝 イベントの説明・備考")
@@ -932,10 +932,9 @@ def main():
                     "auto_close": auto_close,
                     "target_scope": target_scope_json,
                     "is_private": is_private,
-                    "skip_slack": skip_slack,  # 💡 通知をスキップするかどうかのフラグを追加
+                    "skip_slack": skip_slack,
                     "mention_text": mention_text
                 }
-                # 💡 GASからのレスポンスを変数 res で受け取るように修正
                 res = call_gas("create_event", {"payload": payload}, method="POST")
                 clear_cache()
                 st.success(f"「{ev_title}」を作成しました！")
@@ -967,7 +966,8 @@ def main():
 
         with tab_manage:
             u_res = call_gas_cached("get_all_users", method="POST", ttl=600)
-            user_map = {u['user_id']: u['name'] for u in u_res.get("data", [])}
+            all_users_admin = u_res.get("data", [])
+            user_map = {u['user_id']: u['name'] for u in all_users_admin}
 
             def format_target_scope(scope_str):
                 if not scope_str or not scope_str.startswith('{'): return "全員"
@@ -992,7 +992,6 @@ def main():
                 df_ev['期限'] = df_ev['deadline'].apply(format_deadline_jp)
                 df_ev['公開範囲'] = df_ev['target_scope'].apply(format_target_scope)
                 df_ev['秘密'] = df_ev['is_private'].apply(lambda x: "🤫" if x else "-")
-                # 💡 管理者画面に「招待URL」の列を追加
                 df_ev['招待URL'] = df_ev['event_id'].apply(lambda x: f"{APP_BASE_URL}?event={x}")
                 
                 df_display = df_ev[['event_id', 'title', '種類', '詳細', '期限', '公開範囲', '秘密', '招待URL', 'status']]
@@ -1000,7 +999,6 @@ def main():
                 active_events = [ev for ev in all_events if ev['status'] in ['open', 'closed']]
                 st.subheader("🟢 現在のイベント")
                 html_table_ev = df_display[df_display['status'].isin(['open', 'closed'])].to_html(index=False, border=0, classes="custom-tbl")
-                # URL列が長くなりすぎないように折り返しのCSS(word-break)を追加
                 st.markdown("<style>.custom-tbl { width: 100%; border-collapse: collapse; font-size: 14px; text-align: left; } .custom-tbl th { background-color: #f0f2f6; padding: 10px; border-bottom: 2px solid #4CAF50; white-space: nowrap; } .custom-tbl td { padding: 10px; border-bottom: 1px solid #eee; word-break: break-all; }</style>" + f'<div style="overflow-x: auto; border: 1px solid #e0e0e0; border-radius: 8px;">{html_table_ev}</div>', unsafe_allow_html=True)
                 
                 st.markdown("---")
@@ -1013,6 +1011,57 @@ def main():
                             call_gas("update_event_status", {"payload": {"event_id": target_ev['event_id'], "status": new_status}}, method="POST")
                             clear_cache()
                             st.rerun()
+                            
+                # 💡 追加：未回答者の抽出機能
+                st.markdown("---")
+                st.subheader("👀 未回答者の抽出")
+                if active_events:
+                    check_ev = st.selectbox("確認するイベントを選択", active_events, format_func=lambda x: f"{x['title']} ({x['status']})", key="chk_unanswered")
+                    if st.button("未回答者を抽出する", type="primary"):
+                        with st.spinner("データを照合中..."):
+                            resp_res = call_gas("get_responses", {"event_id": check_ev['event_id']})
+                            answered_uids = []
+                            if resp_res.get("status") == "success":
+                                answered_uids = [str(r['user_id']) for r in resp_res.get("data", [])]
+
+                            target_users = []
+                            scope_str = check_ev.get('target_scope', '')
+                            is_all = True
+                            t_groups, t_uids = [], []
+                            if scope_str and scope_str.startswith('{'):
+                                try:
+                                    scope = json.loads(scope_str)
+                                    t_groups = scope.get("groups", [])
+                                    t_uids = [str(x) for x in scope.get("users", [])]
+                                    if t_groups or t_uids: is_all = False
+                                except: pass
+
+                            for u in all_users_admin:
+                                uid = str(u['user_id'])
+                                if uid in answered_uids: continue
+
+                                if is_all:
+                                    target_users.append(u['name'])
+                                else:
+                                    if uid in t_uids:
+                                        target_users.append(u['name'])
+                                        continue
+                                    u_g = []
+                                    for g_key in ['group_1', 'group_2', 'group_3', 'group_4']:
+                                        u_g.extend([x.strip() for x in u.get(g_key, '').split(',') if x.strip()])
+                                    
+                                    # DBに保存された展開済み役職（シスマネ等）もマッチさせるため単純に交差をチェック
+                                    if set(t_groups).intersection(set(u_g)):
+                                        target_users.append(u['name'])
+
+                            if target_users:
+                                st.warning(f"⚠️ 対象者のうち、未回答の人が {len(target_users)} 名います。")
+                                target_users = sorted(target_users) # 五十音順に並べる
+                                st.code("\n".join(target_users), language="text")
+                            else:
+                                st.success("🎉 対象者は全員回答済みです！")
+
+                st.markdown("---")
                 st.subheader("📦 アーカイブ済み")
                 html_table_arch = df_display[df_display['status'] == 'archived'].to_html(index=False, border=0, classes="custom-tbl")
                 st.markdown(f'<div style="overflow-x: auto; border: 1px solid #e0e0e0; border-radius: 8px;">{html_table_arch}</div>', unsafe_allow_html=True)
@@ -1728,7 +1777,8 @@ def main():
                 st.info(f"🔍 フィルター適用中： 回答者 **{unique_all}人** 中、条件に合う **{unique_filtered}人** のデータを集計しています。")
 
             counts = [0.0] * len(opts)
-            details = [[] for _ in range(len(opts))]
+            # 💡 ◯、△、× を分けて保存するように変更
+            details = [{"yes": [], "maybe": [], "no": []} for _ in range(len(opts))]
             comments_list = []
             
             for r in filtered_data:
@@ -1740,10 +1790,12 @@ def main():
                     v = int(b[i]) if i < len(b) else 0
                     if v == 1:
                         counts[i] += 1.0
-                        if can_view_details: details[i].append(f"◯ {r['user_name']}")
+                        if can_view_details: details[i]["yes"].append(r['user_name'])
                     elif v == 2:
                         counts[i] += policy
-                        if can_view_details: details[i].append(f"△ {r['user_name']}")
+                        if can_view_details: details[i]["maybe"].append(r['user_name'])
+                    else:
+                        if can_view_details: details[i]["no"].append(r['user_name'])
                         
             max_c = max(counts) if counts and max(counts) > 0 else 1
             
@@ -1764,11 +1816,29 @@ def main():
                 </div>
                 """, unsafe_allow_html=True)
                 
+                # 💡 参加者の内訳を ◯ △ × で分けて表示
                 if can_view_details:
                     with st.expander("👥 参加者内訳を見る"):
-                        if details[i]:
-                            for d in details[i]: st.write(d)
-                        else: st.write("参加可能者なし")
+                        c_yes, c_maybe, c_no = st.columns(3)
+                        with c_yes:
+                            st.markdown("<span style='color:#4CAF50; font-weight:bold;'>◯ 参加可能</span>", unsafe_allow_html=True)
+                            if details[i]["yes"]:
+                                # ◯の人はコピーしやすいようにコードブロックで表示
+                                st.code("\n".join(details[i]["yes"]), language="text")
+                            else:
+                                st.write("なし")
+                        with c_maybe:
+                            st.markdown("<span style='color:#FF9800; font-weight:bold;'>△ 未定</span>", unsafe_allow_html=True)
+                            if details[i]["maybe"]:
+                                st.markdown("<br>".join([f"△ {n}" for n in details[i]["maybe"]]), unsafe_allow_html=True)
+                            else:
+                                st.write("なし")
+                        with c_no:
+                            st.markdown("<span style='color:#F44336; font-weight:bold;'>× 不可</span>", unsafe_allow_html=True)
+                            if details[i]["no"]:
+                                st.markdown("<br>".join([f"× {n}" for n in details[i]["no"]]), unsafe_allow_html=True)
+                            else:
+                                st.write("なし")
                 
                 st.markdown("<div style='height:15px;'></div>", unsafe_allow_html=True)
             
