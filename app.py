@@ -480,7 +480,6 @@ def main():
         with col_login:
             st.title("日程調整 Pro")
             
-            # 💡 URLから飛んできた人向けのメッセージ
             if "jump_to_event" in st.session_state:
                 st.info("👋 イベントへの招待が届いています。ログインまたは新規登録をして回答してください。")
                 
@@ -537,8 +536,6 @@ def main():
             
             elif login_mode == "🆘 PIN・パスワード復旧":
                 st.subheader("PINの再設定")
-                
-                # --- 手順1: 合言葉がわかる場合（自動復旧） ---
                 with st.expander("🔑 秘密の合言葉を使って自分で復旧する", expanded=True):
                     with st.form("recovery_auth_form"):
                         st.markdown("<small>登録時に設定した合言葉がわかる方はこちら</small>", unsafe_allow_html=True)
@@ -553,7 +550,6 @@ def main():
                             else:
                                 st.error("氏名または合言葉が間違っています。")
                 
-                # --- 手順2: 合言葉も忘れた場合（管理者にSOS） ---
                 with st.expander("🆘 合言葉も忘れたので、管理者に依頼する"):
                     st.write("管理者のSlack/Discordへ通知を送り、PINのリセットを依頼します。")
                     req_name = st.text_input("あなたのお名前", key="req_pin_name")
@@ -570,7 +566,6 @@ def main():
     # ==========================================
     user = st.session_state.auth
     
-    # 💡 2. ジャンプ指示があれば、強制的に「日程調整 回答」モードにし、対象イベントをセット
     default_menu_index = 0
     if "jump_to_event" in st.session_state:
         st.session_state.target_ev_id = st.session_state.jump_to_event
@@ -581,7 +576,6 @@ def main():
     if user.get("role") in ["user", "admin", "top_admin"]: menu_opts.append("➕ イベント新規作成")
     if user.get("role") in ["admin", "top_admin"]: menu_opts.append("⚙️ 管理者専用")
     
-    # 💡 indexを指定して、URLから来た場合は自動で回答画面を開く
     view_mode = st.sidebar.radio("🔧 メニュー", menu_opts, index=default_menu_index)
 
     # ----------------------------------------------------
@@ -593,7 +587,6 @@ def main():
         
         def_g1 = [x for x in user.get('group_1', '').split(', ') if x]
         
-        # 💡 古い名前で登録されているデータを新しい名前に変換して読み込む
         old_to_new_g2 = {
             "通信": "通信系", "熱": "熱系", "構造 (衛星)": "構造系", "構造（衛星）": "構造系",
             "ミッション": "ミッション系", "姿勢": "姿勢系", "電源": "電源系", "C＆DH": "C＆DH系",
@@ -624,49 +617,38 @@ def main():
         upd_g3 = st.multiselect("🏢 委員会", ["執行部", "新入生教育", "広報", "イベント", "会計"], default=safe_def_g3, key="upd_g3")
         upd_g4 = st.multiselect("👑 役職", upd_g4_opts, default=safe_def_g4, key="upd_g4")
 
-        # 💡 iCal URLの設定欄を追加
         st.markdown("---")
         st.markdown("##### 📅 外部カレンダー連携 (任意)")
         st.write("GoogleカレンダーやiPhoneの「非公開URL（iCal形式 / .ics）」を設定しておくと、日程調整の際に自分の予定を自動でグレーアウトできます。")
         upd_cal_url = st.text_input("カレンダーの非公開URL", value=user.get('calendar_url', ''), placeholder="https://calendar.google.com/calendar/ical/.../basic.ics")
 
         if st.button("💾 プロフィールを更新", use_container_width=True, type="primary"):
-            # 💡 URLも保存対象に含める
             payload = {
                 "user_id": user['user_id'], "group_1": ", ".join(upd_g1), "group_2": ", ".join(upd_g2), 
                 "group_3": ", ".join(upd_g3), "group_4": ", ".join(upd_g4), "calendar_url": upd_cal_url
             }
-            
-            # 🔍 デバッグ用：送信データを画面に表示
-            st.info(f"【デバッグ：送信データ】\n{payload}")
-            
+            # デバッグコードを削除し、直接送信
             res = call_gas("update_user", {"payload": payload}, method="POST")
-            
-            # 🔍 デバッグ用：GASからの返り値を画面に表示
-            st.warning(f"【デバッグ：受信データ】\n{res}")
             
             if res.get("status") == "success":
                 clear_cache()
                 st.session_state.auth = res.get("data")
-                
-                # 💡 保存完了メッセージを表示し、ユーザーが読むために2秒待機してからリロード
                 st.success("✅ プロフィールを保存しました！")
-                time.sleep(3)  # 3秒間だけデバッグ画面と成功メッセージを停止して見せる
+                time.sleep(1.5)
                 st.rerun()
             else: 
                 st.error(f"更新に失敗しました: {res.get('message')}")
         return
-   # ----------------------------------------------------
+
+    # ----------------------------------------------------
     # ⏰ 時間割設定画面
     # ----------------------------------------------------
     if view_mode == "⏰ 時間割設定":
         st.title("⏰ 時間割設定")
         st.info("※ここでチェックした授業・予定は、日程調整画面で「不可(×)」として一括反映できます。")
         
-        # 💡 スマホ版：縦積み防止（横スクロール化） ＆ 横向き推奨ガイド
         st.markdown("""
         <style>
-            /* --- 横向き推奨ガイドのCSS --- */
             .mobile-rotate-guide { display: none; }
             @media (max-width: 650px) and (orientation: portrait) {
                 .mobile-rotate-guide {
@@ -679,57 +661,31 @@ def main():
                 .mobile-rotate-guide::before { content: "📱🔄"; font-size: 20px; margin-right: 10px; }
                 @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
             }
-
-            /* --- 表の体裁を絶対に崩さない（縦積み防止）CSS --- */
             @media (max-width: 650px) {
-                /* 1. はみ出た分は横スクロールさせる（画面に無理やり押し込まない） */
                 [data-testid="stForm"] > div > div > [data-testid="stVerticalBlock"] {
-                    overflow-x: auto !important;
-                    padding-bottom: 15px !important; /* スワイプしやすいように下部に余白 */
+                    overflow-x: auto !important; padding-bottom: 15px !important;
                 }
-                
-                /* 2. Streamlit特有の「スマホだと縦に並ぶ」仕様を強制解除し、横並びを死守 */
                 [data-testid="stHorizontalBlock"] {
-                    display: flex !important;
-                    flex-direction: row !important;
-                    flex-wrap: nowrap !important;
-                    min-width: 480px !important; /* ★お気に入りのデザインが潰れない最低横幅 */
-                    gap: 2px !important;
+                    display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important;
+                    min-width: 480px !important; gap: 2px !important;
                 }
-                
-                /* 3. 各列の比率設定 */
-                [data-testid="column"] {
-                    min-width: 0 !important;
-                    flex: 1 1 0px !important;
-                    padding: 0 !important;
-                }
-                [data-testid="column"]:first-child {
-                    flex: 0 0 55px !important; /* 時間表記の列だけ固定幅 */
-                }
-
-                /* 4. フォントと余白の微調整 */
+                [data-testid="column"] { min-width: 0 !important; flex: 1 1 0px !important; padding: 0 !important; }
+                [data-testid="column"]:first-child { flex: 0 0 55px !important; }
                 .tt-day-header { font-size: 13px !important; padding: 4px 0 !important; }
                 .tt-time-cell { font-size: 11px !important; padding: 4px 2px !important; border-left: 2px solid #4CAF50 !important; }
                 .tt-time-sub { font-size: 9px !important; display: block; line-height: 1.1; }
                 .status-on, .status-off, .af-status-on { font-size: 10px !important; padding: 2px 0 !important; }
-                
-                /* チェックボックスの無駄な余白を消去 */
                 [data-testid="stCheckbox"] { margin: 0 auto !important; padding: 0 !important; justify-content: center; }
                 [data-testid="stCheckbox"] label p { display: none !important; }
                 [data-testid="stSelectbox"] { min-width: 0 !important; }
             }
         </style>
-        
         <div class="mobile-rotate-guide">スマホを横向きにすると、時間割が綺麗に表示されます！</div>
         """, unsafe_allow_html=True)
         
-        # 以前のお気に入りデザインを完全復活
         fixed_sched = user.get("fixed_schedule", {})
         ui_state = {str(i): {} for i in range(5)}
-        
         days_jp = ["月", "火", "水", "木", "金"]
-        
-        # 💡 列の比率を変更（左端の「時間」列を少し狭く、曜日列を均等に）
         col_ratios = [1.1, 1, 1, 1, 1, 1]
         
         cols = st.columns(col_ratios)
@@ -743,7 +699,6 @@ def main():
         ]
         
         for p_name, p_time, s_idx, e_idx, p_key in periods:
-            # 💡 ループ内でも列の比率を狭めたものに合わせる
             cols = st.columns(col_ratios)
             cols[0].markdown(f"<div class='tt-time-cell'>{p_name}<br><span class='tt-time-sub'>{p_time}</span></div>", unsafe_allow_html=True)
             for i in range(5):
@@ -874,21 +829,20 @@ def main():
                 
                 all_g1 = list(set([g.strip() for u in all_u for g in u.get('group_1', '').split(',') if g.strip()]))
                 all_g2 = list(set([g.strip() for u in all_u for g in u.get('group_2', '').split(',') if g.strip()]))
-                all_g3 = list(set([g.strip() for u in all_u for g in u.get('group_3', '').split(',') if g.strip()])) # 💡 委員会を追加
-                # 💡 役職の選択肢をスッキリまとめる
+                all_g3 = list(set([g.strip() for u in all_u for g in u.get('group_3', '').split(',') if g.strip()]))
+                
                 g4_display_opts = ["PMs (衛星)", "PMs (ロケット)", "シスマネ", "系長"]
                 
                 st.markdown("<span style='font-size:13px; color:#555;'>※ここで指定したグループや個人のみにイベントが表示されます。</span>", unsafe_allow_html=True)
                 col_t1, col_t2 = st.columns(2)
                 with col_t1:
                     t_g1 = st.multiselect("🚀 プロジェクト", all_g1, key="tgt_g1")
-                    t_g3 = st.multiselect("🏢 委員会", all_g3, key="tgt_g3") # 💡 委員会を追加
+                    t_g3 = st.multiselect("🏢 委員会", all_g3, key="tgt_g3")
                     t_g4 = st.multiselect("👑 役職", g4_display_opts, key="tgt_g4")
                 with col_t2:
                     t_g2 = st.multiselect("🔧 系", all_g2, key="tgt_g2")
                     t_users = st.multiselect("👤 特定の個人", all_u, format_func=lambda x: f"{x['name']} (ID: {x['user_id']})", key="tgt_users")
                 
-                # 💡 「シスマネ」「系長」が選ばれたら、全役職名に展開してからGASへ送る
                 expanded_g4 = []
                 for g in t_g4:
                     if g == "シスマネ":
@@ -899,7 +853,7 @@ def main():
                         expanded_g4.append(g)
 
                 target_scope_json = json.dumps({
-                    "groups": t_g1 + t_g2 + t_g3 + expanded_g4, # 💡 t_g3を追加
+                    "groups": t_g1 + t_g2 + t_g3 + expanded_g4,
                     "users": [u['user_id'] for u in t_users]
                 })
 
@@ -919,18 +873,15 @@ def main():
             elif ev_type == "options" and not any(o.strip() for o in opts_list): st.error("最低1つの候補を入力してください。")
             elif not is_all_members and target_scope_json == '{"groups": [], "users": []}': st.error("対象メンバーを指定するか、「全員に公開する」にチェックを入れてください。")
             else:
-                # 💡 メンションテキストの生成
                 mention_text = ""
                 if is_all_members:
-                    mention_text = "<!channel>"  # Slackの仕様で全体通知は <!channel>
+                    mention_text = "<!channel>"
                 else:
                     mentions = []
-                    # group_1 (プロジェクト)
                     if "衛星" in t_g1: mentions.append("@cubesat")
                     if "ロケット" in t_g1: mentions.append("@rocket")
                     if "BizSat" in t_g1: mentions.append("@biz-sat")
                     
-                    # group_2 (系)
                     if "通信系" in t_g2 or "通信" in t_g2: mentions.append("@com")
                     if "熱系" in t_g2 or "熱" in t_g2: mentions.append("@heat")
                     if "構造系" in t_g2 or "構造 (衛星)" in t_g2: mentions.append("@str")
@@ -944,18 +895,15 @@ def main():
                     if "COLOURS推進系" in t_g2 or "推進" in t_g2: mentions.append("@simu")
                     if "COLOURS燃焼系" in t_g2 or "燃焼" in t_g2: mentions.append("@combustion")
                     
-                    # 💡 group_4 (役職) のメンション判定
                     if "PMs (衛星)" in t_g4: mentions.append("@pms")
                     if "シスマネ" in t_g4: mentions.append("@managers")
 
-                    # 💡 追加：group_3 (委員会) のメンション判定
                     if "新入生教育" in t_g3: mentions.append("@sssup")
                     if "執行部" in t_g3: mentions.append("@executives")
                     if "広報" in t_g3: mentions.append("@kouhou")
                     if "イベント" in t_g3: mentions.append("@event")
                     if "会計" in t_g3: mentions.append("@kaikei")
                     
-                    # 重複したメンションを削除して結合
                     mentions = list(dict.fromkeys(mentions))
                     mention_text = " ".join(mentions)
 
@@ -974,21 +922,18 @@ def main():
                     "auto_close": auto_close,
                     "target_scope": target_scope_json,
                     "is_private": is_private,
-                    "mention_text": mention_text  # 💡 GASへメンションテキストを送信
+                    "mention_text": mention_text
                 }
-                # 💡 GASからのレスポンスを変数 res で受け取るように修正
                 res = call_gas("create_event", {"payload": payload}, method="POST")
                 clear_cache()
                 st.success(f"「{ev_title}」を作成しました！")
             
-                # 💡 res["data"] が辞書（dict）である場合のみ get を試みる安全な書き方
                 created_event_id = None
                 if isinstance(res, dict):
                     data_content = res.get("data")
                     if isinstance(data_content, dict):
                         created_event_id = data_content.get("event_id")
                     else:
-                        # 万が一GASからIDが直接返ってきた場合（旧仕様など）の予備
                         created_event_id = res.get("event_id")
                 
                 if created_event_id:
@@ -1032,9 +977,7 @@ def main():
                 df_ev['種類'] = df_ev['event_type'].replace({"time": "🕒 時間", "timetable": "🏫 時間割", "options": "📅 予定候補"})
                 df_ev['詳細'] = df_ev.apply(lambda row: f"{idx_to_time(row['start_idx'])}〜{idx_to_time(row['end_idx'])}" if row['event_type']=='time' else ("月〜金" if row['event_type']=='timetable' else "複数候補"), axis=1)
                 
-                # 💡 管理画面のリストも日本式の日付に変換
                 df_ev['期限'] = df_ev['deadline'].apply(format_deadline_jp)
-                
                 df_ev['公開範囲'] = df_ev['target_scope'].apply(format_target_scope)
                 df_ev['秘密'] = df_ev['is_private'].apply(lambda x: "🤫" if x else "-")
                 
@@ -1152,7 +1095,6 @@ def main():
 
     now_dt = datetime.now()
 
-    # 💡 修正：同じevent_idが複数ある場合にエラーにならないよう、重複を除去する
     unanswered_events = []
     seen_ids = set()
     for ev in events:
@@ -1164,33 +1106,22 @@ def main():
     if unanswered_events:
         st.sidebar.markdown("---")
         st.sidebar.markdown(f"<div style='color:#FF4B4B; font-weight:bold; padding-bottom: 5px;'>📢 未回答の予定 ({len(unanswered_events)}件)</div>", unsafe_allow_html=True)
-        # 💡 サイドバーの未回答イベント表示
         for u_ev in unanswered_events:
             is_urgent = False
             
-            # --- 1085行目付近の判定 ---
             if u_ev.get('deadline'):
                 try:
-                    # 💡 柔軟な解析に切り替え
                     dl_dt = pd.to_datetime(u_ev['deadline'])
-                    # タイムゾーンがある場合は統一
                     if dl_dt.tzinfo is not None:
                         dl_dt = dl_dt.tz_convert(None)
-                    
-                    # 緊急判定（3日以内）
                     if 0 <= (dl_dt - now_dt).total_seconds() <= 3 * 24 * 3600:
                         is_urgent = True
                 except:
-                    # 解析失敗時は何もしない
                     pass
             
-            # --- 1087行目付近：ここは if の外側（forループの直下）に出す ---
             icon = "🔥" if is_urgent else "🔴"
-            
-            # 💡 期限を日本式に変換
             dl_text = format_deadline_jp(u_ev.get('deadline'))
             
-            # ボタンを表示
             if st.sidebar.button(f"{icon} {u_ev['title']} (〜{dl_text})", key=f"side_btn_{u_ev['event_id']}", use_container_width=True):
                 st.session_state.target_ev_id = u_ev['event_id']
                 st.rerun()
@@ -1198,31 +1129,25 @@ def main():
     if unanswered_events:
         st.warning(f"⚠️ **未回答のイベントが {len(unanswered_events)} 件あります！** サイドバーのリストから選択して早めの回答をお願いします。")
 
-    # 💡 修正後：1220行目付近の index 設定ロジックをより堅牢に
     default_idx = 0
     target_id = st.session_state.get("target_ev_id")
     
-    # セッションにあるIDが、現在のリストに存在するか確認
     if target_id:
         for i, ev in enumerate(events):
             if ev['event_id'] == target_id:
                 default_idx = i
                 break
         else:
-            # もしリストになければ（権限がない、削除された等）、セッションのIDをクリア
             st.session_state.target_ev_id = events[0]['event_id']
 
     def format_ev_name(x):
-        # 💡 日本語に変換した期限を取得
         dl_str = format_deadline_jp(x.get('deadline'))
         
-        # アイコンの決定
         if x['status'] == 'closed': 
             icon = "🔒"
         elif x.get('is_answered'): 
             icon = "✅"
         else:
-            # 緊急判定（ここでも柔軟なパースを使用）
             is_urgent = False
             try:
                 if x.get('deadline'):
@@ -1233,12 +1158,10 @@ def main():
             except: pass
             icon = "🔥" if is_urgent else "🔴"
             
-        # [締切: 3/14(土) 10:00] のような形式で表示
         return f"{icon} {x['title']} [締切: {dl_str}]"
 
     event = st.selectbox("🎯 対象イベント選択", events, index=default_idx, format_func=format_ev_name)
     
-    # 選択されたイベントがセッションと異なれば更新
     if st.session_state.get("target_ev_id") != event['event_id']:
         st.session_state.target_ev_id = event['event_id']
         st.rerun()
@@ -1254,7 +1177,6 @@ def main():
     if is_closed: 
         st.markdown("<div class='closed-alert' style='background:#ffebee; color:#c62828; padding:10px; border-radius:6px; font-weight:bold; margin-bottom:10px;'>🔒 このイベントは締め切られました。</div>", unsafe_allow_html=True)
     elif event.get('deadline'): 
-        # 💡 回答画面上部の期限を日本式に
         st.markdown(f"<div style='color: #E91E63; font-weight: bold; margin-bottom: 10px;'>⏳ 回答期限: {format_deadline_jp(event['deadline'])}</div>", unsafe_allow_html=True)
         
     if event.get('description'): 
@@ -1346,7 +1268,6 @@ def main():
 
         tab_in, tab_graph = st.tabs(["📅 入力", "📊 集計"])
         with tab_in:
-            # 💡 外部連携ボタンの追加（ここから）
             if event_type == 'time':
                 st.markdown("##### 📅 カレンダー連携")
                 c_import1, c_import2 = st.columns([3, 1])
@@ -1354,7 +1275,6 @@ def main():
                     st.write("プロフィールに設定したカレンダーの予定を読み込んで、自動で「授業等(グレー)」として反映します。")
                 with c_import2:
                     if st.button("🔄 カレンダーから取得", use_container_width=True):
-                        # 💡 URLが設定されているかチェック
                         user_cal_url = user.get('calendar_url', '')
                         if not user_cal_url or "http" not in user_cal_url:
                             st.warning("プロフィール画面でカレンダーの非公開URLを設定してください。")
@@ -1364,32 +1284,28 @@ def main():
                                     "payload": {
                                         "start_date": event['start_date'],
                                         "end_date": event['end_date'],
-                                        "ical_url": user_cal_url  # 💡 GASにURLを渡す
+                                        "ical_url": user_cal_url
                                     }
                                 }, method="POST")
-                            
-                            if res.get("status") == "success":
-                                # 💡 data の中にある busy_slots を取得
-                                busy_data = res.get("data", {}).get("busy_slots", {})
-                                if not busy_data:
-                                    st.info("指定期間に予定は見つかりませんでした。")
+                                
+                                if res.get("status") == "success":
+                                    busy_data = res.get("data", {}).get("busy_slots", {})
+                                    if not busy_data:
+                                        st.info("指定期間に予定は見つかりませんでした。")
+                                    else:
+                                        for d_str, slots in busy_data.items():
+                                            if d_str in st.session_state.df_input.columns:
+                                                for s_idx in slots:
+                                                    time_label = time_master[s_idx]
+                                                    if time_label in st.session_state.df_input.index:
+                                                        st.session_state.df_input.loc[time_label, d_str] = 3
+                                        st.success("カレンダーの予定を反映しました！内容を確認して「提出」を押してください。")
+                                        time.sleep(1)
+                                        st.rerun()
                                 else:
-                                    # 取得した予定を df_input（入力用データフレーム）に反映
-                                    for d_str, slots in busy_data.items():
-                                        if d_str in st.session_state.df_input.columns:
-                                            for s_idx in slots:
-                                                time_label = time_master[s_idx]
-                                                if time_label in st.session_state.df_input.index:
-                                                    # 3 = 授業等(グレー) としてセット
-                                                    st.session_state.df_input.loc[time_label, d_str] = 3
-                                    st.success("カレンダーの予定を反映しました！内容を確認して「提出」を押してください。")
-                                    time.sleep(1)
-                                    st.rerun()
-                            else:
-                                st.error("取得に失敗しました。GAS側の権限承認が済んでいるか確認してください。")
-            # 💡 外部連携ボタンの追加（ここまで）
+                                    st.error("取得に失敗しました。GAS側の権限承認が済んでいるか確認してください。")
 
-            st.markdown("---") # 区切り線
+            st.markdown("---")
 
             m = st.session_state.df_input[date_strs].values.tolist()
             time_opts_html = "".join([f'<option value="{i}">{t}</option>' for i, t in enumerate(time_labels)])
@@ -1524,13 +1440,13 @@ def main():
 
             all_res_data = st.session_state.event_responses
             all_names = list(set([r['user_name'] for r in all_res_data]))
-            all_g1, all_g2, all_g3, all_g4 = set(), set(), set(), set() # 💡 all_g3を追加
+            all_g1, all_g2, all_g3, all_g4 = set(), set(), set(), set()
             for r in all_res_data:
                 for g in r.get('group_1', '').split(','):
                     if g.strip(): all_g1.add(g.strip())
                 for g in r.get('group_2', '').split(','):
                     if g.strip(): all_g2.add(g.strip())
-                for g in r.get('group_3', '').split(','): # 💡 委員会を追加
+                for g in r.get('group_3', '').split(','):
                     if g.strip(): all_g3.add(g.strip())
                 for g in r.get('group_4', '').split(','):
                     if g.strip(): all_g4.add(g.strip())
@@ -1543,8 +1459,7 @@ def main():
                     f_col1, f_col2 = st.columns(2)
                     with f_col1:
                         f_g1 = st.multiselect("🚀 プロジェクト", list(all_g1))
-                        f_g3 = st.multiselect("🏢 委員会", list(all_g3)) # 💡 委員会を追加
-                        # 💡 フィルターの選択肢をまとめる
+                        f_g3 = st.multiselect("🏢 委員会", list(all_g3))
                         f_g4 = st.multiselect("👑 役職", ["PMs (衛星)", "PMs (ロケット)", "シスマネ", "系長"])
                     with f_col2:
                         f_g2 = st.multiselect("🔧 系", list(all_g2))
@@ -1571,14 +1486,13 @@ def main():
             for r in all_res_data:
                 u_g1 = [x.strip() for x in r.get('group_1', '').split(',') if x.strip()]
                 u_g2 = [x.strip() for x in r.get('group_2', '').split(',') if x.strip()]
-                u_g3 = [x.strip() for x in r.get('group_3', '').split(',') if x.strip()] # 💡 委員会を追加
+                u_g3 = [x.strip() for x in r.get('group_3', '').split(',') if x.strip()]
                 u_g4 = [x.strip() for x in r.get('group_4', '').split(',') if x.strip()]
                 if f_names and r['user_name'] not in f_names: continue
                 if f_g1 and not set(f_g1).intersection(set(u_g1)): continue
                 if f_g2 and not set(f_g2).intersection(set(u_g2)): continue
-                if f_g3 and not set(f_g3).intersection(set(u_g3)): continue # 💡 委員会でフィルタリング
+                if f_g3 and not set(f_g3).intersection(set(u_g3)): continue
                 
-                # 💡 シスマネや系長を選んだ場合、ユーザーの役職にその文字が含まれていればOKとする（部分一致）
                 if f_g4:
                     match_g4 = False
                     for fg in f_g4:
@@ -1729,13 +1643,13 @@ def main():
 
             all_res_data = st.session_state.event_responses
             all_names = list(set([r['user_name'] for r in all_res_data]))
-            all_g1, all_g2, all_g3, all_g4 = set(), set(), set(), set() # 💡 all_g3を追加
+            all_g1, all_g2, all_g3, all_g4 = set(), set(), set(), set()
             for r in all_res_data:
                 for g in r.get('group_1', '').split(','):
                     if g.strip(): all_g1.add(g.strip())
                 for g in r.get('group_2', '').split(','):
                     if g.strip(): all_g2.add(g.strip())
-                for g in r.get('group_3', '').split(','): # 💡 委員会を追加
+                for g in r.get('group_3', '').split(','):
                     if g.strip(): all_g3.add(g.strip())
                 for g in r.get('group_4', '').split(','):
                     if g.strip(): all_g4.add(g.strip())
@@ -1746,8 +1660,7 @@ def main():
                     f_col1, f_col2 = st.columns(2)
                     with f_col1:
                         f_g1 = st.multiselect("🚀 プロジェクト", list(all_g1), key="f2_g1")
-                        f_g3 = st.multiselect("🏢 委員会", list(all_g3), key="f2_g3") # 💡 委員会を追加
-                        # 💡 フィルターの選択肢をまとめる
+                        f_g3 = st.multiselect("🏢 委員会", list(all_g3), key="f2_g3")
                         f_g4 = st.multiselect("👑 役職", ["PMs (衛星)", "PMs (ロケット)", "シスマネ", "系長"], key="f2_g4")
                     with f_col2:
                         f_g2 = st.multiselect("🔧 系", list(all_g2), key="f2_g2")
@@ -1759,14 +1672,13 @@ def main():
             for r in all_res_data:
                 u_g1 = [x.strip() for x in r.get('group_1', '').split(',') if x.strip()]
                 u_g2 = [x.strip() for x in r.get('group_2', '').split(',') if x.strip()]
-                u_g3 = [x.strip() for x in r.get('group_3', '').split(',') if x.strip()] # 💡 委員会を追加
+                u_g3 = [x.strip() for x in r.get('group_3', '').split(',') if x.strip()]
                 u_g4 = [x.strip() for x in r.get('group_4', '').split(',') if x.strip()]
                 if f_names and r['user_name'] not in f_names: continue
                 if f_g1 and not set(f_g1).intersection(set(u_g1)): continue
                 if f_g2 and not set(f_g2).intersection(set(u_g2)): continue
-                if f_g3 and not set(f_g3).intersection(set(u_g3)): continue # 💡 委員会でフィルタリング
+                if f_g3 and not set(f_g3).intersection(set(u_g3)): continue
                 
-                # 💡 シスマネや系長の絞り込み（部分一致）
                 if f_g4:
                     match_g4 = False
                     for fg in f_g4:
