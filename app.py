@@ -874,19 +874,30 @@ def main():
                 
                 all_g1 = list(set([g.strip() for u in all_u for g in u.get('group_1', '').split(',') if g.strip()]))
                 all_g2 = list(set([g.strip() for u in all_u for g in u.get('group_2', '').split(',') if g.strip()]))
-                all_g4 = list(set([g.strip() for u in all_u for g in u.get('group_4', '').split(',') if g.strip()]))
+                # 💡 役職の選択肢をスッキリまとめる
+                g4_display_opts = ["PMs (衛星)", "PMs (ロケット)", "シスマネ", "系長"]
                 
                 st.markdown("<span style='font-size:13px; color:#555;'>※ここで指定したグループや個人のみにイベントが表示されます。</span>", unsafe_allow_html=True)
                 col_t1, col_t2 = st.columns(2)
                 with col_t1:
                     t_g1 = st.multiselect("🚀 プロジェクト", all_g1, key="tgt_g1")
-                    t_g4 = st.multiselect("👑 役職", all_g4, key="tgt_g4")
+                    t_g4 = st.multiselect("👑 役職", g4_display_opts, key="tgt_g4")
                 with col_t2:
                     t_g2 = st.multiselect("🔧 系", all_g2, key="tgt_g2")
                     t_users = st.multiselect("👤 特定の個人", all_u, format_func=lambda x: f"{x['name']} (ID: {x['user_id']})", key="tgt_users")
                 
+                # 💡 「シスマネ」「系長」が選ばれたら、全役職名に展開してからGASへ送る
+                expanded_g4 = []
+                for g in t_g4:
+                    if g == "シスマネ":
+                        expanded_g4.extend(["ミッションシスマネ", "電源シスマネ", "構造シスマネ", "通信シスマネ", "姿勢シスマネ", "熱シスマネ", "C＆DHシスマネ"])
+                    elif g == "系長":
+                        expanded_g4.extend(["燃焼系長", "推進系長", "構造系長", "電装系長"])
+                    else:
+                        expanded_g4.append(g)
+
                 target_scope_json = json.dumps({
-                    "groups": t_g1 + t_g2 + t_g4,
+                    "groups": t_g1 + t_g2 + expanded_g4,
                     "users": [u['user_id'] for u in t_users]
                 })
 
@@ -917,7 +928,7 @@ def main():
                     if "ロケット" in t_g1: mentions.append("@rocket")
                     if "BizSat" in t_g1: mentions.append("@biz-sat")
                     
-                    # group_2 (系) ※古い名前が残っているケースも想定して両方で判定
+                    # group_2 (系)
                     if "通信系" in t_g2 or "通信" in t_g2: mentions.append("@com")
                     if "熱系" in t_g2 or "熱" in t_g2: mentions.append("@heat")
                     if "構造系" in t_g2 or "構造 (衛星)" in t_g2: mentions.append("@str")
@@ -930,6 +941,10 @@ def main():
                     if "COLOURS構造系" in t_g2 or "構造 (ロケット)" in t_g2: mentions.append("@structure")
                     if "COLOURS推進系" in t_g2 or "推進" in t_g2: mentions.append("@simu")
                     if "COLOURS燃焼系" in t_g2 or "燃焼" in t_g2: mentions.append("@combustion")
+                    
+                    # 💡 追加：group_4 (役職) のメンション判定
+                    if "PMs (衛星)" in t_g4: mentions.append("@pms")
+                    if "シスマネ" in t_g4: mentions.append("@managers")
                     
                     # 重複したメンションを削除して結合
                     mentions = list(dict.fromkeys(mentions))
@@ -1517,7 +1532,8 @@ def main():
                     f_col1, f_col2 = st.columns(2)
                     with f_col1:
                         f_g1 = st.multiselect("🚀 プロジェクト", list(all_g1))
-                        f_g4 = st.multiselect("👑 役職", list(all_g4))
+                        # 💡 フィルターの選択肢をまとめる
+                        f_g4 = st.multiselect("👑 役職", ["PMs (衛星)", "PMs (ロケット)", "シスマネ", "系長"])
                     with f_col2:
                         f_g2 = st.multiselect("🔧 系", list(all_g2))
                         f_names = st.multiselect("👤 特定の個人", all_names)
@@ -1539,7 +1555,7 @@ def main():
 
                     submitted = st.form_submit_button("✅ フィルターを適用して集計", type="primary")
 
-            filtered_data = []
+           filtered_data = []
             for r in all_res_data:
                 u_g1 = [x.strip() for x in r.get('group_1', '').split(',') if x.strip()]
                 u_g2 = [x.strip() for x in r.get('group_2', '').split(',') if x.strip()]
@@ -1547,7 +1563,19 @@ def main():
                 if f_names and r['user_name'] not in f_names: continue
                 if f_g1 and not set(f_g1).intersection(set(u_g1)): continue
                 if f_g2 and not set(f_g2).intersection(set(u_g2)): continue
-                if f_g4 and not set(f_g4).intersection(set(u_g4)): continue
+                
+                # 💡 シスマネや系長を選んだ場合、ユーザーの役職にその文字が含まれていればOKとする（部分一致）
+                if f_g4:
+                    match_g4 = False
+                    for fg in f_g4:
+                        if fg == "シスマネ":
+                            if any("シスマネ" in ug for ug in u_g4): match_g4 = True; break
+                        elif fg == "系長":
+                            if any("系長" in ug for ug in u_g4): match_g4 = True; break
+                        else:
+                            if fg in u_g4: match_g4 = True; break
+                    if not match_g4: continue
+                    
                 filtered_data.append(r)
             
             t_start_idx = time_labels.index(f_time[0])
@@ -1702,7 +1730,8 @@ def main():
                     f_col1, f_col2 = st.columns(2)
                     with f_col1:
                         f_g1 = st.multiselect("🚀 プロジェクト", list(all_g1), key="f2_g1")
-                        f_g4 = st.multiselect("👑 役職", list(all_g4), key="f2_g4")
+                        # 💡 フィルターの選択肢をまとめる
+                        f_g4 = st.multiselect("👑 役職", ["PMs (衛星)", "PMs (ロケット)", "シスマネ", "系長"], key="f2_g4")
                     with f_col2:
                         f_g2 = st.multiselect("🔧 系", list(all_g2), key="f2_g2")
                         f_names = st.multiselect("👤 特定の個人", all_names, key="f2_names")
@@ -1717,7 +1746,19 @@ def main():
                 if f_names and r['user_name'] not in f_names: continue
                 if f_g1 and not set(f_g1).intersection(set(u_g1)): continue
                 if f_g2 and not set(f_g2).intersection(set(u_g2)): continue
-                if f_g4 and not set(f_g4).intersection(set(u_g4)): continue
+                
+                # 💡 シスマネや系長の絞り込み（部分一致）
+                if f_g4:
+                    match_g4 = False
+                    for fg in f_g4:
+                        if fg == "シスマネ":
+                            if any("シスマネ" in ug for ug in u_g4): match_g4 = True; break
+                        elif fg == "系長":
+                            if any("系長" in ug for ug in u_g4): match_g4 = True; break
+                        else:
+                            if fg in u_g4: match_g4 = True; break
+                    if not match_g4: continue
+
                 filtered_data.append(r)
 
             unique_all = len(set([r['user_id'] for r in all_res_data]))
