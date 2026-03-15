@@ -867,8 +867,10 @@ def main():
 
         st.markdown("<br>", unsafe_allow_html=True)
         with st.container(border=True):
-            st.markdown("##### 🔒 プライバシー設定")
+            st.markdown("##### 🔒 プライバシー・通知設定")
             is_private = st.checkbox("🤫 プライベート調整にする（回答者の名前を他の参加者に隠す）", key="create_private")
+            # 💡 追加：Slackに通知を送らない設定
+            skip_slack = st.checkbox("🔕 Slackに通知を送らない（ひっそり作成してURLで直接招待する）", value=False, key="skip_slack")
 
         st.markdown("##### 📝 イベントの説明・備考")
         ev_desc_raw = rt_editor(key="desc_editor")
@@ -930,8 +932,10 @@ def main():
                     "auto_close": auto_close,
                     "target_scope": target_scope_json,
                     "is_private": is_private,
+                    "skip_slack": skip_slack,  # 💡 通知をスキップするかどうかのフラグを追加
                     "mention_text": mention_text
                 }
+                # 💡 GASからのレスポンスを変数 res で受け取るように修正
                 res = call_gas("create_event", {"payload": payload}, method="POST")
                 clear_cache()
                 st.success(f"「{ev_title}」を作成しました！")
